@@ -1,0 +1,70 @@
+{% extends 'accounts/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 text-white">AI Detection Results</h1>
+    </div>
+</div>
+<div class="row gy-4">
+    <div class="col-md-4">
+        <div class="card bg-secondary bg-opacity-10 border-secondary border-start border-4 shadow-sm">
+            <div class="card-body">
+                <small class="text-uppercase text-secondary">Total Events</small>
+                <h3 class="mt-2 text-white">{{ total }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success bg-opacity-10 border-success border-start border-4 shadow-sm">
+            <div class="card-body">
+                <small class="text-uppercase text-success">Normal Logins</small>
+                <h3 class="mt-2 text-white">{{ normal }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-danger bg-opacity-10 border-danger border-start border-4 shadow-sm">
+            <div class="card-body">
+                <small class="text-uppercase text-danger">Suspicious Logins</small>
+                <h3 class="mt-2 text-white">{{ suspicious }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card bg-dark border-secondary shadow-sm mt-4">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless align-middle mb-0">
+                <thead>
+                    <tr class="text-secondary small text-uppercase">
+                        <th>Date</th>
+                        <th>Country</th>
+                        <th>IP Address</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if histories %}
+                    {% for item in histories %}
+                    <tr>
+                        <td>{{ item.login_time }}</td>
+                        <td>{{ item.country }}</td>
+                        <td>{{ item.ip_address }}</td>
+                        <td>
+                            <span
+                                class="badge {% if item.ai_result == 'Suspicious Login' %}bg-danger{% else %}bg-success{% endif %}">{{
+                                item.ai_result }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-secondary">No AI detection results available.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

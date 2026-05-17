@@ -1,0 +1,21 @@
+{% extends 'accounts/base.html' %}
+{% block content %}
+<div class="auth-page d-flex justify-content-center align-items-center py-5">
+    <div class="card auth-card shadow-lg border-secondary bg-dark">
+        <div class="card-body p-5">
+            <h2 class="h4 text-white mb-3">Login</h2>
+            {% if message %}
+            <div class="alert alert-danger">{{ message }}</div>
+            {% endif %}
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">{{ form.username.label_tag }}{{ form.username }}</div>
+                <div class="mb-4">{{ form.password.label_tag }}{{ form.password }}</div>
+                <button type="submit" class="btn btn-danger w-100">Sign In</button>
+            </form>
+            <p class="text-center text-secondary mt-4 mb-0">New here? <a class="text-white"
+                    href="{% url 'register' %}">Create an account</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

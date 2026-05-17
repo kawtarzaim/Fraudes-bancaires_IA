@@ -1,0 +1,16 @@
+{% extends 'accounts/base.html' %}
+{% block content %}
+<div class="py-5 text-center">
+    <div class="mx-auto" style="max-width: 720px;">
+        <span class="badge bg-danger mb-3">AI Cybersecurity Banking</span>
+        <h1 class="display-6 text-white mb-3">Bankify</h1>
+        <div class="d-flex justify-content-center gap-3 mt-4">
+            <a href="{% url 'login' %}" class="btn btn-danger btn-lg px-4">Login</a>
+            <a href="{% url 'register' %}" class="btn btn-outline-light btn-lg px-4">Register</a>
+        </div>
+    </div>
+</div>
+<div class="row gy-4 mt-5">
+
+</div>
+{% endblock %}

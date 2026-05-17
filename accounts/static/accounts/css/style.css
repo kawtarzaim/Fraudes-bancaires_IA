@@ -1,0 +1,75 @@
+body {
+    background: #080b17;
+    color: #dee2e6;
+    min-height: 100vh;
+}
+
+.navbar,
+.sidebar,
+.card,
+.auth-card {
+    background: #0b1226 !important;
+}
+
+.sidebar {
+    min-height: calc(100vh - 56px);
+}
+
+.sidebar .nav-link {
+    color: #cbd5e1;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+}
+
+.main-content {
+    min-height: calc(100vh - 56px);
+}
+
+.auth-page {
+    min-height: calc(100vh - 56px);
+}
+
+.auth-card {
+    max-width: 420px;
+    width: 100%;
+}
+
+.form-control-dark {
+    background: #111a34;
+    border: 1px solid #1f2a44;
+    color: #f8fafc;
+}
+
+.form-control-dark:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 0.2rem rgba(124, 58, 237, 0.25);
+}
+
+.table-dark th,
+.table-dark td {
+    border-color: #1f2a44;
+}
+
+.table-dark tbody tr:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.badge {
+    font-size: 0.88rem;
+}
+
+.card {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.text-secondary {
+    color: #9ca3af !important;
+}
+
+.bg-black {
+    background-color: #02040a !important;
+}

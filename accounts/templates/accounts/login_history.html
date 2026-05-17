@@ -1,0 +1,44 @@
+{% extends 'accounts/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 text-white">Login History</h1>
+    </div>
+</div>
+<div class="card bg-dark border-secondary shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless align-middle mb-0">
+                <thead>
+                    <tr class="text-secondary small text-uppercase">
+                        <th>Date</th>
+                        <th>IP Address</th>
+                        <th>Country</th>
+                        <th>AI Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if histories %}
+                    {% for item in histories %}
+                    <tr>
+                        <td>{{ item.login_time }}</td>
+                        <td>{{ item.ip_address }}</td>
+                        <td>{{ item.country }}</td>
+                        <td>
+                            <span
+                                class="badge {% if item.ai_result == 'Suspicious Login' %}bg-danger{% else %}bg-success{% endif %}">{{
+                                item.ai_result }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-secondary">No login history found.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
