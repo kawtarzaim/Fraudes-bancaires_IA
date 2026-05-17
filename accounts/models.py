@@ -3,10 +3,24 @@ from django.db import models
 
 
 class LoginHistory(models.Model):
+    EVENT_TYPES = [
+        ('SUCCESS', 'Successful login'),
+        ('AI_BLOCKED', 'AI blocked login'),
+        ('FAILED', 'Failed login'),
+        ('TEMP_BLOCKED', 'Temporary blocked login'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     ip_address = models.CharField(max_length=45)
     country = models.CharField(max_length=100, default='Unknown')
     login_time = models.DateTimeField()
+    failed_attempts = models.PositiveIntegerField(default=0)
+    event_type = models.CharField(
+        max_length=20,
+        choices=EVENT_TYPES,
+        default='SUCCESS',
+    )
+    blocked_until = models.DateTimeField(null=True, blank=True)
     ai_result = models.CharField(
         max_length=20,
         choices=[

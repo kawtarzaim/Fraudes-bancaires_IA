@@ -6,7 +6,7 @@
     </div>
 </div>
 <div class="row gy-4">
-    <div class="col-md-6 col-xl-3">
+    <div class="col-md-4">
         <div class="card bg-secondary bg-opacity-10 border-secondary border-start border-4 shadow-sm">
             <div class="card-body">
                 <small class="text-uppercase text-secondary">Total Logins</small>
@@ -14,7 +14,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-6 col-xl-3">
+    <div class="col-md-4">
         <div class="card bg-danger bg-opacity-10 border-danger border-start border-4 shadow-sm">
             <div class="card-body">
                 <small class="text-uppercase text-danger">Suspicious Logins</small>
@@ -22,19 +22,11 @@
             </div>
         </div>
     </div>
-    <div class="col-md-6 col-xl-3">
+    <div class="col-md-4">
         <div class="card bg-success bg-opacity-10 border-success border-start border-4 shadow-sm">
             <div class="card-body">
                 <small class="text-uppercase text-success">Total Payments</small>
                 <h3 class="mt-2 text-white">{{ total_payments }}</h3>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-xl-3">
-        <div class="card bg-info bg-opacity-10 border-info border-start border-4 shadow-sm">
-            <div class="card-body">
-                <small class="text-uppercase text-info">Total Users</small>
-                <h3 class="mt-2 text-white">{{ total_users }}</h3>
             </div>
         </div>
     </div>
@@ -53,6 +45,7 @@
                             <tr class="text-secondary small text-uppercase">
                                 <th>Login Time</th>
                                 <th>IP Address</th>
+                                <th>Event</th>
                                 <th>Result</th>
                             </tr>
                         </thead>
@@ -61,6 +54,7 @@
                             <tr>
                                 <td>{{ item.login_time }}</td>
                                 <td>{{ item.ip_address }}</td>
+                                <td>{{ item.get_event_type_display }}</td>
                                 <td>
                                     <span
                                         class="badge {% if item.ai_result == 'Suspicious Login' %}bg-danger{% else %}bg-success{% endif %}">{{

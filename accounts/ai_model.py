@@ -53,7 +53,7 @@ def predict_login(ip_address: str, country: str, login_hour: int) -> str:
     """Predict if this login is normal or suspicious."""
     # AI kay7لل wach login مشبوه ولا لا
     trained_model = train_model()
-    features = [[encode_ip_address(ip_address), encode_country("India"), login_hour]]
+    features = [[encode_ip_address(ip_address), encode_country(country), login_hour]]
     prediction = trained_model.predict(features)[0]
     if prediction == 0:
         return 'Normal Login'

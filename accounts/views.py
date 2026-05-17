@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from django.contrib import messages
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -8,6 +11,70 @@ from .ai_model import predict_login
 from .forms import LoginForm, PaymentForm, RegisterForm
 from .models import LoginHistory, Payment
 from .utils import get_client_ip, get_country_from_ip
+
+
+MAX_FAILED_LOGIN_ATTEMPTS = 3
+LOGIN_BLOCK_MINUTES = 1
+
+
+def get_recent_failed_attempts(user, now=None):
+    """Count wrong-password attempts since the last success or block event."""
+    now = now or timezone.now()
+    latest_success = LoginHistory.objects.filter(
+        user=user,
+        event_type='SUCCESS',
+    ).first()
+    latest_block = LoginHistory.objects.filter(
+        user=user,
+        event_type='TEMP_BLOCKED',
+        blocked_until__lte=now,
+    ).first()
+
+    reset_time = None
+    if latest_success:
+        reset_time = latest_success.login_time
+    if latest_block and (reset_time is None or latest_block.login_time > reset_time):
+        reset_time = latest_block.login_time
+
+    failed_logins = LoginHistory.objects.filter(
+        user=user,
+        event_type='FAILED',
+    )
+    if reset_time:
+        failed_logins = failed_logins.filter(login_time__gt=reset_time)
+    return failed_logins.count()
+
+
+def get_active_login_block(user, now):
+    """Return the latest active temporary block for this user, if one exists."""
+    return LoginHistory.objects.filter(
+        user=user,
+        event_type='TEMP_BLOCKED',
+        blocked_until__gt=now,
+    ).first()
+
+
+def create_login_alert(
+    user,
+    ip_address,
+    country,
+    login_time,
+    ai_result,
+    failed_attempts,
+    event_type,
+    blocked_until=None,
+):
+    """Store every suspicious or blocked login event for audit and alerting."""
+    return LoginHistory.objects.create(
+        user=user,
+        ip_address=ip_address,
+        country=country,
+        login_time=login_time,
+        ai_result=ai_result,
+        failed_attempts=failed_attempts,
+        event_type=event_type,
+        blocked_until=blocked_until,
+    )
 
 
 def home_view(request):
@@ -32,51 +99,110 @@ def register_view(request):
 
 def login_view(request):
     """View for user login and AI fraud check."""
-    message = ''
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
             username = form.cleaned_data['username']
             password = form.cleaned_data['password']
+            ip_address = get_client_ip(request)
+            country = get_country_from_ip(ip_address)
+            server_time = timezone.localtime(timezone.now())
+
+            target_user = User.objects.filter(username=username).first()
+            if target_user:
+                # Security check before authenticate(): a blocked account cannot
+                # try passwords until blocked_until has passed.
+                active_block = get_active_login_block(target_user, server_time)
+                if active_block:
+                    messages.error(
+                        request,
+                        'Too many failed attempts. Try again later.',
+                    )
+                    return redirect('login')
+
             user = authenticate(request, username=username, password=password)
             if user is not None:
-                auth_login(request, user)
-
-                # hna kanjibo l IP dyal user
-                ip_address = get_client_ip(request)
-                # hna kanjibo country mn IP
-                country = get_country_from_ip(ip_address)
-                # hna kanst3mlo server time bash n7ddo lwa9t dyal login
-                # Server time is more secure and harder to manipulate than user local time.
-                # waqt server akthar aman w ma yt7akkamsh fih user b easily.
-                server_time = timezone.localtime(timezone.now())
+                # Server time is harder to manipulate than a browser-provided timestamp.
                 ai_result = predict_login(ip_address, country, server_time.hour)
+                failed_attempts = get_recent_failed_attempts(user, server_time)
 
-                LoginHistory.objects.create(
+                if ai_result == 'Suspicious Login':
+                    create_login_alert(
+                        user=user,
+                        ip_address=ip_address,
+                        country=country,
+                        login_time=server_time,
+                        failed_attempts=failed_attempts,
+                        ai_result='Suspicious Login',
+                        event_type='AI_BLOCKED',
+                    )
+                    messages.error(
+                        request,
+                        'Suspicious login detected by the AI model. Access has been blocked.',
+                    )
+                    return redirect('login')
+
+                create_login_alert(
                     user=user,
                     ip_address=ip_address,
                     country=country,
                     login_time=server_time,
+                    failed_attempts=0,
+                    ai_result='Normal Login',
+                    event_type='SUCCESS',
+                )
+                auth_login(request, user)
+                return redirect('dashboard')
+
+            if target_user:
+                failed_attempts = get_recent_failed_attempts(target_user, server_time) + 1
+                blocked_until = None
+                event_type = 'FAILED'
+                ai_result = 'Normal Login'
+
+                if failed_attempts >= MAX_FAILED_LOGIN_ATTEMPTS:
+                    blocked_until = server_time + timedelta(minutes=LOGIN_BLOCK_MINUTES)
+                    event_type = 'TEMP_BLOCKED'
+                    ai_result = 'Suspicious Login'
+
+                create_login_alert(
+                    user=target_user,
+                    ip_address=ip_address,
+                    country=country,
+                    login_time=server_time,
                     ai_result=ai_result,
+                    failed_attempts=failed_attempts,
+                    event_type=event_type,
+                    blocked_until=blocked_until,
                 )
 
-                return redirect('dashboard')
-            message = 'Invalid credentials. Please check your username and password.'
+                if blocked_until:
+                    messages.error(
+                        request,
+                        'Too many failed attempts. Try again later.',
+                    )
+                    return redirect('login')
+
+            messages.error(request, 'Invalid credentials. Please check your username and password.')
+            return redirect('login')
     else:
         form = LoginForm()
 
-    return render(request, 'accounts/login.html', {'form': form, 'message': message})
+    return render(request, 'accounts/login.html', {'form': form})
 
 
 @login_required
 def dashboard_view(request):
     """Secure banking dashboard with activity and statistics."""
-    total_logins = LoginHistory.objects.filter(user=request.user).count()
+    total_logins = LoginHistory.objects.filter(
+        user=request.user,
+        event_type='SUCCESS',
+    ).count()
     suspicious_logins = LoginHistory.objects.filter(
-        user=request.user, ai_result='Suspicious Login'
+        user=request.user,
+        event_type__in=['AI_BLOCKED', 'TEMP_BLOCKED'],
     ).count()
     total_payments = Payment.objects.filter(user=request.user).count()
-    total_users = User.objects.count()
     latest_logins = LoginHistory.objects.filter(user=request.user)[:6]
 
     return render(
@@ -86,7 +212,6 @@ def dashboard_view(request):
             'total_logins': total_logins,
             'suspicious_logins': suspicious_logins,
             'total_payments': total_payments,
-            'total_users': total_users,
             'latest_logins': latest_logins,
         },
     )
@@ -131,8 +256,8 @@ def ai_results_view(request):
     """AI detection results page with login outcome details."""
     histories = LoginHistory.objects.filter(user=request.user)
     total = histories.count()
-    suspicious = histories.filter(ai_result='Suspicious Login').count()
-    normal = histories.filter(ai_result='Normal Login').count()
+    suspicious = histories.filter(event_type__in=['AI_BLOCKED', 'TEMP_BLOCKED']).count()
+    normal = histories.filter(event_type='SUCCESS').count()
 
     return render(
         request,
