@@ -98,7 +98,25 @@ def register_view(request):
 
 
 def login_view(request):
-    """View for user login and AI fraud check."""
+    """
+    View for user login with three-layer security:
+
+    LAYER 1: Temporary Block Check
+        If user has 3+ failed attempts, block for 1 minute -> TEMP_BLOCKED
+
+    LAYER 2: Credentials Check
+        Check username/password -> authenticate()
+
+    LAYER 3: AI Fraud Detection
+        Check IP, country, login hour, and failed attempts
+        - Normal evening/night logins from home are allowed
+        - Foreign country + suspicious IP is suspicious
+        - Suspicious IP + failed attempts is suspicious
+
+    LAYER 4: Failed Attempt Tracking
+        Track wrong passwords to prevent brute force
+        After 3 failed attempts -> block for 1 minute
+    """
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
@@ -110,8 +128,8 @@ def login_view(request):
 
             target_user = User.objects.filter(username=username).first()
             if target_user:
-                # Security check before authenticate(): a blocked account cannot
-                # try passwords until blocked_until has passed.
+                # LAYER 1: Check if account is temporarily blocked (3 failed attempts)
+                # This prevents brute force attacks on known usernames
                 active_block = get_active_login_block(target_user, server_time)
                 if active_block:
                     messages.error(
@@ -120,13 +138,23 @@ def login_view(request):
                     )
                     return redirect('login')
 
+            # LAYER 2: Authenticate with Django
+            # This checks if password is correct
             user = authenticate(request, username=username, password=password)
             if user is not None:
-                # Server time is harder to manipulate than a browser-provided timestamp.
-                ai_result = predict_login(ip_address, country, server_time.hour)
                 failed_attempts = get_recent_failed_attempts(user, server_time)
+                # LAYER 3: AI Fraud Detection
+                # The model uses only existing project signals: IP risk,
+                # country, server login hour, and recent failed attempts.
+                ai_result = predict_login(
+                    ip_address,
+                    country,
+                    server_time.hour,
+                    failed_attempts,
+                )
 
                 if ai_result == 'Suspicious Login':
+                    # AI detected fraud: block login and log alert
                     create_login_alert(
                         user=user,
                         ip_address=ip_address,
@@ -142,6 +170,8 @@ def login_view(request):
                     )
                     return redirect('login')
 
+                # Login passed all checks: credentials OK + AI approved
+                # Record successful login in history
                 create_login_alert(
                     user=user,
                     ip_address=ip_address,
@@ -154,17 +184,22 @@ def login_view(request):
                 auth_login(request, user)
                 return redirect('dashboard')
 
+            # LAYER 4: Password was wrong - track failed attempt
+            # Count failures to block brute force attacks
             if target_user:
                 failed_attempts = get_recent_failed_attempts(target_user, server_time) + 1
                 blocked_until = None
                 event_type = 'FAILED'
                 ai_result = 'Normal Login'
 
+                # After 3 failed attempts, block account for 1 minute
+                # This prevents attackers from guessing passwords endlessly
                 if failed_attempts >= MAX_FAILED_LOGIN_ATTEMPTS:
                     blocked_until = server_time + timedelta(minutes=LOGIN_BLOCK_MINUTES)
                     event_type = 'TEMP_BLOCKED'
-                    ai_result = 'Suspicious Login'
+                    ai_result = 'Suspicious Login'  # Mark as suspicious in database
 
+                # Record this failed attempt (or block) in history
                 create_login_alert(
                     user=target_user,
                     ip_address=ip_address,
@@ -176,6 +211,7 @@ def login_view(request):
                     blocked_until=blocked_until,
                 )
 
+                # If blocked due to too many attempts, show error
                 if blocked_until:
                     messages.error(
                         request,
@@ -183,6 +219,8 @@ def login_view(request):
                     )
                     return redirect('login')
 
+            # Generic error message for non-existent users or wrong password
+            # This is a security best practice: don't reveal which users exist
             messages.error(request, 'Invalid credentials. Please check your username and password.')
             return redirect('login')
     else:
